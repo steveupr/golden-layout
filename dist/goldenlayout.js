@@ -356,8 +356,10 @@ lm.utils.copy( lm.utils.DragListener.prototype, {
 		this._nOriginalX = coordinates.x;
 		this._nOriginalY = coordinates.y;
 
-		this._oDocument.on('mousemove touchmove', this._fMove);
-		this._oDocument.one('mouseup touchend', this._fUp);
+		if (oEvent.type === 'mousedown') {
+			this._oDocument.on('mousemove', this._fMove);
+			this._oDocument.one('mouseup', this._fUp);
+		}
 
 		this._timeout = setTimeout( lm.utils.fnBind( this._startDrag, this ), this._nDelay );
 	},
@@ -408,17 +410,11 @@ lm.utils.copy( lm.utils.DragListener.prototype, {
 	},
 
 	_getCoordinates: function( event ) {
-		var coordinates = {};
-
-		if( event.type.substr( 0, 5 ) === 'touch' ) {
-			coordinates.x = event.originalEvent.targetTouches[ 0 ].pageX;
-			coordinates.y = event.originalEvent.targetTouches[ 0 ].pageY;
-		} else {
-			coordinates.x = event.pageX;
-			coordinates.y = event.pageY;
-		}
-
-		return coordinates;
+		event = event.originalEvent.touches ? event.originalEvent.touches[0] : event;
+		return {
+			x: event.pageX,
+			y: event.pageY
+		};
 	}
 });
 /**
@@ -1866,6 +1862,9 @@ lm.controls.DragProxy = function( x, y, dragListener, layoutManager, contentItem
 	this.element = $( lm.controls.DragProxy._template );
 	this.element.css({ left: x, top: y });
 	this.element.find( '.lm_title' ).html( this._contentItem.config.title );
+	this.element.on('touchmove', this._dragListener._fMove);
+	this.element.one('touchend', this._dragListener._fUp);
+
 	this.childElementContainer = this.element.find( '.lm_content' );
 	this.childElementContainer.append( contentItem.element );
 
@@ -1912,6 +1911,9 @@ lm.utils.copy( lm.controls.DragProxy.prototype, {
 	 * @returns {void}
 	 */
 	_onDrag: function( offsetX, offsetY, event ) {
+
+		event = event.originalEvent.touches ? event.originalEvent.touches[0] : event;
+
 		var x = event.pageX,
 			y = event.pageY,
 			isWithinContainer = x > this._minX && x < this._maxX && y > this._minY && y < this._maxY;
@@ -2099,7 +2101,7 @@ lm.controls.Header = function( layoutManager, parent ) {
 
 	if( this.layoutManager.config.settings.selectionEnabled === true ) {
 		this.element.addClass( 'lm_selectable' );
-		this.element.click( lm.utils.fnBind( this._onHeaderClick, this ) );
+		this.element.on( 'click touchstart', lm.utils.fnBind( this._onHeaderClick, this ) );
 	}
 	
 	this.element.height( layoutManager.config.dimensions.headerHeight );
@@ -2250,7 +2252,7 @@ lm.utils.copy( lm.controls.Header.prototype, {
 			maximise = lm.utils.fnBind( this.parent.toggleMaximise, this.parent );
 			maximiseLabel = this.layoutManager.config.labels.maximise;
 			minimiseLabel = this.layoutManager.config.labels.minimise;
-			maximiseButton = new lm.controls.HeaderButton( this, maximiseLabel, 'lm_maximise', maximise );
+			maximiseButton = new lm.controls.HeaderButton( this, maximiseLabel, 'lm_maximise', maximise, 'fa fa-lg' );
 			
 			this.parent.on( 'maximised', function(){
 				maximiseButton.element.attr( 'title', minimiseLabel );
@@ -2267,7 +2269,7 @@ lm.utils.copy( lm.controls.Header.prototype, {
 		if( this.parent.config.isClosable && this.layoutManager.config.settings.showCloseIcon ) {
 			closeStack = lm.utils.fnBind( this.parent.remove, this.parent );
 			label = this.layoutManager.config.labels.close;
-			new lm.controls.HeaderButton( this, label, 'lm_close', closeStack );
+			new lm.controls.HeaderButton( this, label, 'lm_close', closeStack, 'fa fa-times fa-lg' );
 		}
 	},
 
@@ -2344,12 +2346,12 @@ lm.utils.copy( lm.controls.Header.prototype, {
 });
 
 
-lm.controls.HeaderButton = function( header, label, cssClass, action ) {
+lm.controls.HeaderButton = function( header, label, cssClass, action, iconClass ) {
 	this._header = header;
-	this.element = $( '<li class="' + cssClass + '" title="' + label + '"></li>' );
+	this.element = $( '<li class="' + cssClass + '" title="' + label + '"><span class="' + iconClass + '" aria-hidden="true"></span></li>' );
 	this._header.on( 'destroy', this._$destroy, this );
 	this._action = action;
-	this.element.click( this._action );
+	this.element.on( 'click touchstart', this._action );
 	this._header.controlsContainer.append( this.element );
 };
 
@@ -2418,10 +2420,10 @@ lm.controls.Tab = function( header, contentItem ) {
 	this._onTabClickFn = lm.utils.fnBind( this._onTabClick, this );
 	this._onCloseClickFn = lm.utils.fnBind( this._onCloseClick, this );
 
-	this.element.click( this._onTabClickFn );
+	this.element.on( 'click touchstart', this._onTabClickFn );
 
 	if( this._layoutManager.config.settings.showCloseIcon === true ) {
-		this.closeElement.click( this._onCloseClickFn );
+		this.closeElement.on( 'click touchstart', this._onCloseClickFn );
 	} else {
 		this.closeElement.remove();
 	}
@@ -2442,7 +2444,7 @@ lm.controls.Tab = function( header, contentItem ) {
  * @type {String}
  */
 lm.controls.Tab._template = '<li class="lm_tab"><i class="lm_left"></i>' +
-							'<span class="lm_title"></span><div class="lm_close_tab"></div>' +
+							'<span class="lm_title"></span><div class="lm_close_tab"><span class="fa fa-times fa-lg" aria-hidden="true"></span></div>' +
 							'<i class="lm_right"></i></li>';
 
 lm.utils.copy( lm.controls.Tab.prototype,{
@@ -2487,8 +2489,8 @@ lm.utils.copy( lm.controls.Tab.prototype,{
 	 * @returns {void}
 	 */
 	_$destroy: function() {
-		this.element.off( 'click', this._onTabClickFn );
-		this.closeElement.off( 'click', this._onCloseClickFn );
+		this.element.off( 'click touchstart', this._onTabClickFn );
+		this.closeElement.off( 'click touchstart', this._onCloseClickFn );
 		this.element.remove();
 	},
 
@@ -2856,7 +2858,8 @@ lm.utils.copy( lm.items.AbstractContentItem.prototype, {
 	 *
 	 * @returns {void}
 	 */
-	toggleMaximise: function() {
+	toggleMaximise: function(e) {
+		e.preventDefault();
 		if( this.isMaximised === true ) {
 			this.layoutManager._$minimiseItem( this );
 		} else {

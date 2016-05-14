@@ -356,10 +356,8 @@ lm.utils.copy( lm.utils.DragListener.prototype, {
 		this._nOriginalX = coordinates.x;
 		this._nOriginalY = coordinates.y;
 
-		if (oEvent.type === 'mousedown') {
-			this._oDocument.on('mousemove', this._fMove);
-			this._oDocument.one('mouseup', this._fUp);
-		}
+		this._oDocument.on('mousemove touchmove', this._fMove);
+		this._oDocument.one('mouseup touchend', this._fUp);
 
 		this._timeout = setTimeout( lm.utils.fnBind( this._startDrag, this ), this._nDelay );
 	},
@@ -1862,8 +1860,13 @@ lm.controls.DragProxy = function( x, y, dragListener, layoutManager, contentItem
 	this.element = $( lm.controls.DragProxy._template );
 	this.element.css({ left: x, top: y });
 	this.element.find( '.lm_title' ).html( this._contentItem.config.title );
-	this.element.on('touchmove', this._dragListener._fMove);
-	this.element.one('touchend', this._dragListener._fUp);
+
+	// If dragging a tab the touchmove handlers should be bound to the
+	// drag proxy element, rather than the document.
+	if (this._contentItem.tab) {
+		this.element.on('touchmove', this._dragListener._fMove);
+		this.element.one('touchend', this._dragListener._fUp);
+	}
 
 	this.childElementContainer = this.element.find( '.lm_content' );
 	this.childElementContainer.append( contentItem.element );
@@ -1892,6 +1895,7 @@ lm.controls.DragProxy._template = '<div class="lm_dragProxy">' +
 											'<i class="lm_right"></i></li>' +
 										'</ul>' +
 									'</div>' +
+									'<div class="lm_content moving-icon"><i class="fa fa-arrows fa-5x" aria-hidden="true"></i></div>' +
 									'<div class="lm_content"></div>' +
 								'</div>';
 
@@ -2526,8 +2530,9 @@ lm.utils.copy( lm.controls.Tab.prototype,{
 	 * @returns {void}
 	 */
 	_onTabClick: function( event ) {
-		// left mouse button
-		if( event.button === 0 ) {
+
+		// left mouse button or tap
+		if( event.button === 0 || event.type === 'touchstart') {
 			this.header.parent.setActiveContentItem( this.contentItem );
 
 		// middle mouse button
